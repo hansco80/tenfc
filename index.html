@@ -15,7 +15,7 @@
         body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: var(--bg); margin: 0; padding: 12px; color: #333; }
         .app-title { text-align: center; font-size: 1.3rem; margin-bottom: 15px; padding: 10px; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); color: var(--primary); }
         .tab-menu { display: flex; gap: 5px; margin-bottom: 15px; }
-        .tab-btn { flex: 1; padding: 12px 5px; border: none; background: #ddd; font-weight: bold; border-radius: 6px; font-size: 0.85rem; cursor: pointer; }
+        .tab-btn { flex: 1; padding: 12px 5px; border: none; background: #ddd; font-weight: bold; border-radius: 6px; font-size: 0.82rem; cursor: pointer; }
         .tab-btn.active { background: var(--primary); color: white; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
@@ -38,6 +38,18 @@
         th { background: var(--primary); color: white; }
         .total-score { font-size: 1.1rem; font-weight: bold; color: var(--primary); }
         .save-tag { text-align: right; font-size: 0.75rem; color: #777; margin-bottom: 5px; }
+        
+        /* 추첨 탭 스타일 */
+        .prize-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; margin-bottom: 10px; background: #fafafa; }
+        .prize-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; margin-bottom: 6px; }
+        .prize-name { font-size: 0.95rem; color: #1F497D; }
+        .prize-sponsor { font-size: 0.75rem; color: #666; font-weight: normal; margin-bottom: 8px; }
+        .prize-count { font-size: 0.8rem; background: #e8f4fd; color: #1F497D; padding: 2px 6px; border-radius: 4px; }
+        .prize-select-group { display: flex; gap: 5px; margin-top: 8px; }
+        .prize-select-group select { flex: 1; }
+        .winner-tag-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+        .winner-chip { background: #27ae60; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; }
+        .winner-chip button { background: none; border: none; color: white; font-size: 0.75rem; cursor: pointer; padding: 0; margin-left: 2px; }
     </style>
 </head>
 <body>
@@ -49,7 +61,8 @@
     <button class="tab-btn active" onclick="switchTab(this, 'tab1')">1. 미니게임</button>
     <button class="tab-btn" onclick="switchTab(this, 'tab2')">2. 릴레이</button>
     <button class="tab-btn" onclick="switchTab(this, 'tab3')">3. 토너먼트</button>
-    <button class="tab-btn" onclick="switchTab(this, 'tab4')">📊 종합 순위</button>
+    <button class="tab-btn" onclick="switchTab(this, 'tab5')">🎁 추첨</button>
+    <button class="tab-btn" onclick="switchTab(this, 'tab4')">📊 종합</button>
 </div>
 
 <!-- 1. 미니게임 탭 -->
@@ -83,6 +96,15 @@
     </div>
 </div>
 
+<!-- 🎁 경품 추첨 기록 탭 (수정됨) -->
+<div id="tab5" class="tab-content">
+    <div class="card">
+        <h3>🎁 현장 추첨 결과 기록</h3>
+        <p style="font-size:0.8rem; color:#666; margin-top:-5px;">현장에서 뽑힌 당첨자를 경품별로 선택해 기록하세요.</p>
+        <div id="raffle-prizes-container"></div>
+    </div>
+</div>
+
 <!-- 4. 종합 순위 탭 -->
 <div id="tab4" class="tab-content">
     <div class="card">
@@ -101,7 +123,7 @@
             <tbody id="summary-table"></tbody>
         </table>
     </div>
-    <button class="reset-btn" onclick="resetAllData()">⚠️ 전체 점수 초기화</button>
+    <button class="reset-btn" onclick="resetAllData()">⚠️ 전체 데이터 초기화</button>
 </div>
 
 <script>
@@ -112,12 +134,21 @@ const teamsData = {
     "신희관 팀": ["신희관", "정권명", "권민석", "김강현", "최한샘"]
 };
 
+// 경품 정의
+const prizeList = [
+    { id: "p1", name: "🍷 와인 세트 (30만원 상당)", sponsor: "최윤석 회장 협찬", limit: 1 },
+    { id: "p2", name: "🔍 셜록홈즈 방탈출 무료 이용권", sponsor: "우희중 회원 협찬 (4인 기준)", limit: 3 },
+    { id: "p3", name: "🥩 고기야 3만원 식사권", sponsor: "강기현 회원 협찬", limit: 5 },
+    { id: "p4", name: "🧺 워시엔조이 셀프빨래방 1만원 이용권", sponsor: "오한결 감독 협찬", limit: 5 }
+];
+
 let scores = {
     mini: {},
     relay: { dribble: {}, speed: {} },
     relayTime: { dribble: {}, speed: {} },
     tournament: {},
-    bonus: {}
+    bonus: {},
+    raffleWinners: {} // 경품별 당첨자 목록 저장 { p1: ["선수A"], p2: ["선수B", "선수C"] }
 };
 
 let timers = {};
@@ -127,13 +158,21 @@ function initData() {
     if (saved) {
         scores = JSON.parse(saved);
         if (!scores.relayTime) scores.relayTime = { dribble: {}, speed: {} };
+        if (!scores.raffleWinners) scores.raffleWinners = {};
     } else {
         createDefaultScores();
     }
 }
 
 function createDefaultScores() {
-    scores = { mini: {}, relay: { dribble: {}, speed: {} }, relayTime: { dribble: {}, speed: {} }, tournament: {}, bonus: {} };
+    scores = { 
+        mini: {}, 
+        relay: { dribble: {}, speed: {} }, 
+        relayTime: { dribble: {}, speed: {} }, 
+        tournament: {}, 
+        bonus: {},
+        raffleWinners: {}
+    };
     Object.keys(teamsData).forEach(team => {
         scores.relay.dribble[team] = 0;
         scores.relay.speed[team] = 0;
@@ -162,6 +201,7 @@ function switchTab(btn, tabId) {
     if (tabId === 'tab1') renderMiniGames();
     if (tabId === 'tab2') renderRelays();
     if (tabId === 'tab3') renderTournament();
+    if (tabId === 'tab5') renderRaffleTab();
     if (tabId === 'tab4') updateSummary();
 }
 
@@ -180,8 +220,8 @@ function renderMiniGames() {
             <div class="player-row">
                 <span><strong>${player}</strong></span>
                 <div>
-                    <button class="btn ${poleActive}" id="pole-${player}" onclick="toggleScore('${player}', 'pole', 10)">기둥 (10p)</button>
-                    <button class="btn ${trashActive}" id="trash-${player}" onclick="toggleScore('${player}', 'trash', 20)">쓰레기통 (20p)</button>
+                    <button class="btn ${poleActive}" id="pole-${player}" onclick="toggleScore('${player}', 'pole', 10)">고깔 (10p)</button>
+                    <button class="btn ${trashActive}" id="trash-${player}" onclick="toggleScore('${player}', 'trash', 20)">공넣기 (20p)</button>
                 </div>
             </div>`;
         });
@@ -245,13 +285,11 @@ function renderRelays() {
     });
 }
 
-// 시작/일시정지 토글 함수
 function toggleTimer(game, team) {
     const key = `${game}-${team}`;
     const btn = document.getElementById(`toggle-btn-${game}-${team}`);
 
     if (timers[key] && timers[key].interval) {
-        // 일시정지 수행
         clearInterval(timers[key].interval);
         timers[key].interval = null;
         const finalSec = parseFloat((timers[key].elapsed / 1000).toFixed(1));
@@ -265,7 +303,6 @@ function toggleTimer(game, team) {
             btn.classList.add('start');
         }
     } else {
-        // 시작 수행
         const startTime = Date.now() - (timers[key] ? timers[key].elapsed : 0);
         timers[key] = {
             startTime: startTime,
@@ -315,7 +352,6 @@ function formatTime(ms) {
     return `${min}:${sec}.${deci}`;
 }
 
-// 4위 0점 부여 적용
 function calculateRelayRank(game) {
     let records = [];
     Object.keys(teamsData).forEach(team => {
@@ -325,7 +361,7 @@ function calculateRelayRank(game) {
 
     const validRecords = records.filter(r => r.time > 0);
     if (validRecords.length === 0) {
-        alert("기록된 시간이 없습니다. 타이머를 측정하거나 기록을 입력하세요.");
+        alert("기록된 시간이 없습니다.");
         return;
     }
 
@@ -335,7 +371,7 @@ function calculateRelayRank(game) {
         return a.time - b.time;
     });
 
-    const ptsMap = [50, 40, 30, 0]; // 4위 0점 변경
+    const ptsMap = [50, 40, 30, 0];
     if(!scores.relay[game]) scores.relay[game] = {};
     records.forEach((item, idx) => {
         if (item.time > 0) {
@@ -398,6 +434,110 @@ function setBonusScore(team, val) {
     saveData();
 }
 
+// 🎁 추첨 결과 기록 탭 렌더링
+function renderRaffleTab() {
+    const container = document.getElementById('raffle-prizes-container');
+    if(!container) return;
+    
+    // 전체 당첨자 목록 파악 (중복 당첨 방지용)
+    let allWinners = [];
+    Object.keys(scores.raffleWinners).forEach(pId => {
+        allWinners = allWinners.concat(scores.raffleWinners[pId]);
+    });
+
+    // 전체 선수 명단 추출 (팀명 포함)
+    let allPlayers = [];
+    Object.keys(teamsData).forEach(team => {
+        teamsData[team].forEach(p => {
+            allPlayers.push({ name: p, team: team });
+        });
+    });
+
+    let html = '';
+    prizeList.forEach(prize => {
+        const currentWinners = scores.raffleWinners[prize.id] || [];
+        const isFull = currentWinners.length >= prize.limit;
+
+        html += `
+        <div class="prize-card">
+            <div class="prize-header">
+                <span class="prize-name">${prize.name}</span>
+                <span class="prize-count">${currentWinners.length} / ${prize.limit}명</span>
+            </div>
+            <div class="prize-sponsor">${prize.sponsor}</div>
+            
+            <div class="winner-tag-list">`;
+            
+        if (currentWinners.length === 0) {
+            html += `<span style="font-size:0.8rem; color:#888;">아직 당첨자 없음</span>`;
+        } else {
+            currentWinners.forEach(winner => {
+                html += `
+                <div class="winner-chip">
+                    👤 ${winner}
+                    <button onclick="removeRaffleWinner('${prize.id}', '${winner}')">✕</button>
+                </div>`;
+            });
+        }
+        
+        html += `</div>`;
+
+        // 완료되지 않은 경우에만 선택 드롭다운 표시
+        if (!isFull) {
+            html += `
+            <div class="prize-select-group">
+                <select id="select-${prize.id}">
+                    <option value="">당첨자 선택 (${prize.limit - currentWinners.length}명 남음)...</option>`;
+            
+            allPlayers.forEach(p => {
+                const disabled = allWinners.includes(p.name) ? 'disabled' : '';
+                const tag = allWinners.includes(p.name) ? ' (이미 당첨됨)' : '';
+                html += `<option value="${p.name}" ${disabled}>${p.name} [${p.team}]${tag}</option>`;
+            });
+
+            html += `
+                </select>
+                <button class="btn" style="background:var(--primary); color:white;" onclick="addRaffleWinner('${prize.id}')">기록</button>
+            </div>`;
+        } else {
+            html += `<div style="font-size:0.8rem; color:var(--accent); font-weight:bold; margin-top:8px;">✅ 당첨 기록 완료</div>`;
+        }
+
+        html += `</div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function addRaffleWinner(prizeId) {
+    const selectEl = document.getElementById(`select-${prizeId}`);
+    if(!selectEl) return;
+    const selectedPlayer = selectEl.value;
+
+    if (!selectedPlayer) {
+        alert("당첨자를 선택해주세요.");
+        return;
+    }
+
+    if (!scores.raffleWinners[prizeId]) {
+        scores.raffleWinners[prizeId] = [];
+    }
+
+    scores.raffleWinners[prizeId].push(selectedPlayer);
+    saveData();
+    renderRaffleTab();
+}
+
+function removeRaffleWinner(prizeId, player) {
+    if (confirm(`${player} 님의 당첨 기록을 취소하시겠습니까?`)) {
+        if (scores.raffleWinners[prizeId]) {
+            scores.raffleWinners[prizeId] = scores.raffleWinners[prizeId].filter(p => p !== player);
+            saveData();
+            renderRaffleTab();
+        }
+    }
+}
+
 // 4. 종합 순위 계산
 function updateSummary() {
     const tbody = document.getElementById('summary-table');
@@ -438,12 +578,13 @@ function updateSummary() {
 }
 
 function resetAllData() {
-    if (confirm("정말로 모든 점수를 초기화하시겠습니까?")) {
+    if (confirm("정말로 모든 점수 및 추첨 기록을 초기화하시겠습니까?")) {
         localStorage.removeItem('tenfc_scores');
         createDefaultScores();
         renderMiniGames();
         renderRelays();
         renderTournament();
+        renderRaffleTab();
         updateSummary();
         alert("모든 데이터가 초기화되었습니다.");
     }
