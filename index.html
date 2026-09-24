@@ -94,7 +94,7 @@
         <div id="tournament-container"></div>
     </div>
     <div class="card">
-        <h3>🤝 용병 보너스 (+30점)</h3>
+        <h3>🤝 용병 보너스 (+10점)</h3>
         <div id="mercenary-container"></div>
     </div>
 </div>
@@ -463,8 +463,8 @@ function renderTournament() {
             <span>${team} 지원 보너스</span>
             <select onchange="setBonusScore('${team}', this.value)">
                 <option value="0" ${currentVal == 0 ? 'selected' : ''}>0점</option>
-                <option value="30" ${currentVal == 30 ? 'selected' : ''}>+30점 (1회 성공)</option>
-                <option value="60" ${currentVal == 60 ? 'selected' : ''}>+60점 (2회 성공)</option>
+                <option value="30" ${currentVal == 10 ? 'selected' : ''}>+10점 (1회 성공)</option>
+                <option value="60" ${currentVal == 20 ? 'selected' : ''}>+20점 (2회 성공)</option>
             </select>
         </div>`;
     });
